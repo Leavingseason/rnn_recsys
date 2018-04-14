@@ -97,26 +97,7 @@ def build_category_probability_and_inverted_index(mylist):
     return cate_list, cate_prob, cate2articles, cate2cnt
              
 def load_article_category_as_list(infile):
-    '''
-    [('rt_china', 6.967694285445531e-07), ('rt_france', 6.967694285445531e-07), ('rt_germany', 6.967694285445531e-07), ('rt_arts', 6.967694285445531e-07), 
-    ('rt_taiwan', 6.967694285445531e-07), ('rt_brazil', 2.0903082856336594e-06), ('rt_singapore', 2.020631342779204e-05), ('rt_factcheck', 2.578046885614847e-05), 
-    ('rt_indonesia', 4.2502935141217745e-05), ('rt_obituary', 6.619309571173255e-05), ('rt_ireland', 9.615418113914833e-05), ('rt_sports_nhra', 0.00011427018628130672), 
-    ('rt_newzealand', 0.0001282055748521978), ('rt_sports_indycar', 0.0001351732691376433), ('rt_sports_esports', 0.0004368744316974348), 
-    ('rt_southafrica', 0.0007023435839729097), ('rt_sports_softball', 0.0007838656071126223), ('rt_australia', 0.0010430638345311962), 
-    ('rt_sports_horseracing', 0.0010799926142440574), ('rt_india', 0.0013252554530917401), ('rt_sports_cycling', 0.0013259522225202848), 
-    ('rt_sports_wrestling', 0.0014834221133713536), ('rt_uk', 0.0017816394287884225), ('rt_products', 0.002028295806493194), ('rt_sports_nascar', 0.0023272098913388077),
-     ('rt_sports_wwe', 0.0023348743550527977), ('rt_sports_boxing', 0.002418486686478144), ('rt_sports_tennis', 0.0031939910604482317),
-      ('rt_sports_cricket', 0.00336051895387038), ('rt_world_americas', 0.0037618581447120426), ('rt_sports_golf', 0.0039897017478461114), 
-      ('rt_canada', 0.004174345646410418), ('rt_sports_mma', 0.004416124638115378), ('rt_sports_cbb', 0.0056096906692121975), ('rt_world_middleeast', 0.005647316218353604), 
-      ('rt_science', 0.005875159821487673), ('rt_world_asia', 0.0059977912409115135), ('rt_sports_nhl', 0.006256292698901543), ('rt_world_europe', 0.006407491664895711), 
-      ('rt_us_midwest', 0.006530819853748097), ('rt_us_northeast', 0.0066297611126014235), ('rt_entertainment_music', 0.006773992384310146), 
-      ('rt_sports_mlb', 0.0067997728531662945), ('rt_world_africa', 0.007104957862868809), ('rt_entertainment_movieandtv', 0.00785955915398256), 
-      ('rt_sports_nba', 0.008932584073941171), ('rt_us_west', 0.008986235319939102), ('rt_sports_soccer', 0.009724810914196328), ('rt_sports_cfb', 0.011035434209288634), 
-      ('rt_us_south', 0.011492514954413861), ('rt_health', 0.012670752058082699), ('rt_technology', 0.013154310041492619), ('rt_world', 0.016245875995944802), 
-      ('rt_sports_nfl', 0.019287274551541778), ('rt_business', 0.022477781764847285), ('rt_entertainment', 0.03942739488362208), ('rt_scienceandtechnology', 0.04716989677360916),
-       ('rt_politics', 0.06248001142701863), ('rt_sports', 0.08717142966635195), ('rt_us', 0.09977459508986583), ('null', 0.10282156780089116), 
-       ('rt_lifestyle', 0.12377481805608297), ('rt_unclassified', 0.18327823048435926)]
-    '''
+
     articles = [] 
     with codecs.open(infile, 'r', 'utf-8') as rd:
         while True:
@@ -181,11 +162,4 @@ if __name__ == '__main__':
     '''
     
     #load_wordhash_data(r'D:\My Projects\data\news\processed\word_hashing_title_2017-01-01-2017-01-31.obj')
-    
-    r'''
-    convert_raw_file_to_indexed(
-        r'D:\My Projects\data\news\artitle_title_2017-01-01-2017-01-31.firstlines.tsv'  ,
-        r'D:\My Projects\data\news\processed\artitle_title_2017-01-01-2017-01-31_word_index.txt'   ,
-        r'D:\My Projects\data\news\processed\word_hashing.obj'                   
-                                )
-        '''
+ 
