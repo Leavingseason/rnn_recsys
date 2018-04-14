@@ -5,6 +5,7 @@
 import logging
 import tensorflow as tf 
 from datetime import datetime
+import os 
 
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,8 @@ handler02.setLevel(logging.INFO)
 handler02.setFormatter(formatter)
 logger.addHandler(handler02)
 
-logger.info('launching the program!')
+logger.info('launching the program...')
+logger.info('Welcome, {0} !'.format(os.getlogin()))
 logger.info(tf.__version__)
 
 VOC_SIZE = 30000
