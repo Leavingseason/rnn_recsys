@@ -35,6 +35,8 @@ class SDAE(object):
         
         self.summary_path = hparam['tf_summary_file'] if 'tf_summary_file' in hparam else 'log_tmp_path'
 
+        self.saver = None 
+        
         self.X = tf.sparse_placeholder(tf.float32) 
         self.Y = tf.sparse_placeholder(tf.float32) 
         self.mask = tf.sparse_placeholder(tf.float32) 
@@ -62,7 +64,7 @@ class SDAE(object):
         self.b_prime = tf.Variable(tf.truncated_normal([self.vocab_size], stddev=self.init_value * 0.001, mean=0), name='decoder_W', dtype=tf.float32 )
         self.params['b_prime'] = self.b_prime 
         
-        self.encoded_values, self.decoded_values, self.error, self.loss, self.train_step, self.summary = self.build_model()
+        self.encoded_values, self.decoded_values, self.masked_decoded_values, self.error, self.loss, self.train_step, self.summary = self.build_model()
         
         self.sess = tf.Session() 
         self.sess.run(tf.global_variables_initializer())
@@ -74,7 +76,10 @@ class SDAE(object):
             self.log_writer.close()
             self.log_writer = None
     
-    def build_model(self):        
+    def build_model(self):     
+        
+        dense_masker = tf.sparse_tensor_to_dense(self.mask)
+           
         with tf.name_scope('encoding'):
             encoding = tf.add(tf.sparse_tensor_dense_matmul(self.X, self.W) , self.b, name= 'raw_values')
             encoded_values = self.enc_func(encoding, name = 'encoded_values')
@@ -82,10 +87,11 @@ class SDAE(object):
         with tf.name_scope('decoding'):
             decoding =  tf.nn.xw_plus_b(encoded_values, self.W_prime, self.b_prime)
             decoded_values = self.dec_func(decoding, name = 'decoded_values')
+            masked_decoded_values = tf.multiply(dense_masker, decoded_values)
         
         with tf.name_scope('training_process'):
-            diff = tf.squared_difference(tf.sparse_tensor_to_dense(self.Y) , decoded_values)
-            error  = tf.reduce_sum( tf.multiply(tf.sparse_tensor_to_dense(self.mask), diff) )
+            diff = tf.squared_difference(tf.sparse_tensor_to_dense(self.Y, default_value = 0) , decoded_values)
+            error  = tf.reduce_sum( tf.multiply(dense_masker, diff) )
             reg = 0  
             for param in self.params.items():
                 reg += tf.nn.l2_loss(param[1])* self.lambda_w
@@ -98,10 +104,11 @@ class SDAE(object):
         tf.summary.scalar('error', error)
         tf.summary.scalar('loss', loss)        
         for param in self.params.items():
-            tf.summary.histogram(param[0], param[1])        
+            tf.summary.histogram(param[0], param[1])   
+        #tf.summary.histogram('predictions', decoded_values)     
         merged_summary = tf.summary.merge_all()
                        
-        return encoded_values, decoded_values, error, loss, train_step, merged_summary
+        return encoded_values, decoded_values, masked_decoded_values, error, loss, train_step, merged_summary
 
     def _optimize(self, loss , model_params ):
         if self.opt == 'adadelta':
@@ -115,13 +122,13 @@ class SDAE(object):
         return train_step
   
 
-    def fit(self, sp_indices, sp_noised_values, sp_original_values, cur_batch_size):
+    def fit(self, sp_indices, sp_noised_values, sp_original_values, sp_mask_indices, cur_batch_size):
         tensor_shape = np.array([cur_batch_size, self.vocab_size], dtype=np.int64)
         error, loss, summary, _ = self.sess.run(
                   [self.error, self.loss, self.summary, self.train_step], 
                   {self.X: (sp_indices, sp_noised_values, tensor_shape), 
                    self.Y: (sp_indices, sp_original_values, tensor_shape), 
-                   self.mask: (sp_indices, np.ones_like(sp_original_values), tensor_shape)}
+                   self.mask: (sp_mask_indices, np.ones(sp_mask_indices.shape[0]), tensor_shape)}
         )
         self.log_writer.add_summary(summary, self._glo_ite_counter)
         self._glo_ite_counter+=1
@@ -132,13 +139,20 @@ class SDAE(object):
         return self.sess.run(self.encoded_values,
                     {self.X: (sp_indices, sp_noised_values, tensor_shape)}
         )
+        
+    def get_predictions(self, sp_indices, sp_noised_values, sp_original_values, sp_mask_indices, cur_batch_size):
+        tensor_shape = np.array([cur_batch_size, self.vocab_size], dtype=np.int64)
+        return self.sess.run([self.decoded_values, self.masked_decoded_values],
+                    {self.X: (sp_indices, sp_noised_values, tensor_shape),
+                     self.mask: (sp_mask_indices, np.ones(sp_mask_indices.shape[0]), tensor_shape)}
+        )
     
-    def evaluate(self, sp_indices, sp_noised_values, sp_original_values, cur_batch_size ):
+    def evaluate(self, sp_indices, sp_noised_values, sp_original_values, sp_mask_indices, cur_batch_size ):
         tensor_shape = np.array([cur_batch_size, self.vocab_size], dtype=np.int64)
         error, loss = self.sess.run([self.error, self.loss], 
                    {self.X: (sp_indices, sp_noised_values, tensor_shape), 
                    self.Y: (sp_indices, sp_original_values, tensor_shape), 
-                   self.mask: (sp_indices, np.ones_like(sp_original_values), tensor_shape)}
+                   self.mask: (sp_mask_indices, np.ones(sp_mask_indices.shape[0]), tensor_shape)}
                   )
         return (error, loss)
 
@@ -158,7 +172,13 @@ class SDAE(object):
         config.logger.info('unsupported activation type! %s'  %(name))
         return tf.tanh 
     
-    def save_model(self, filename):
-        saver = tf.train.Saver()
-        saver.save(self.sess, filename)
+    def save_model(self, filename, step):
+        if not self.saver:
+            self.saver = tf.train.Saver(max_to_keep = 50)
+        self.saver.save(self.sess, filename, global_step = step )
+        
+    def restore_model(self, filename):
+        if not self.saver:
+            self.saver = tf.train.Saver(max_to_keep = 50)
+        self.saver.restore(self.sess, filename)
         

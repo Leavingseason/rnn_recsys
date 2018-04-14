@@ -8,7 +8,7 @@ import operator
 import pickle 
 import config
 from helper import utils
-
+import random 
 
 class word_hash_agent(object):
     
@@ -31,9 +31,10 @@ class word_hash_agent(object):
                     break 
                 linecnt+=1
                 words = line.strip().split('\t')
-                if len(words)!=2 or not line.startswith('http'):
+                #if len(words)!=2 or not line.startswith('http'):
+                if len(words)!=3:
                     continue
-                tokens = set(utils.clean_str(words[1]).split(' '))
+                tokens = set(utils.clean_str(words[2]).split(' '))
                 for token in tokens:
                     self.word2freq[token]+=1
                     
@@ -44,10 +45,23 @@ class word_hash_agent(object):
         
         self.word2freq = self.select_top_words(self.word2freq, self.topk_words)
         
+        r'''
         idx= 0 
         for p in self.word2freq.items():
             self.word2idx[p[0]]=idx 
             self.idx2word[idx]=p[0]
+            idx+=1        
+        '''
+        
+        '''
+        shuffle the words for better indexing
+        '''
+        words_bag = list(self.word2freq.keys())
+        random.shuffle(words_bag)
+        idx= 0 
+        for p in words_bag:
+            self.word2idx[p]=idx 
+            self.idx2word[idx]=p
             idx+=1
         
         config.logger.info('finished word hashing.')

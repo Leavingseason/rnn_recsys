@@ -53,6 +53,8 @@ class RNNRS(BaseRS):
     
     def _build_model(self):
         
+        global_bias = tf.Variable(tf.truncated_normal([1], stddev=self.init_value*0.1, mean=0), dtype=tf.float32, name='glo_b')
+        
         rnn_cell = tf.contrib.rnn.MultiRNNCell([self._get_a_cell(size, func) for (size, func) in zip(self.layer_sizes, self.layer_func)])
         
         output , _ = tf.nn.dynamic_rnn(rnn_cell, self.X_seq, sequence_length = self.Len_seq, dtype=tf.float32 )
@@ -60,9 +62,10 @@ class RNNRS(BaseRS):
         u_t = self._gather_last_output(output, self.Len_seq)
         u_t = tf.reshape(u_t, (-1, self.layer_sizes[-1]), name = 'user_embedding')
         
-        preds = tf.sigmoid( tf.reduce_sum(tf.multiply(u_t, self.Item), 1, keepdims = True) , name= 'prediction')
+        preds = tf.sigmoid( tf.reduce_sum(tf.multiply(u_t, self.Item), 1, keepdims = True) + global_bias , name= 'prediction')  ##--
         
-        error = tf.reduce_mean(tf.losses.log_loss(predictions=preds, labels=self.Label), name='mean_log_loss')
+        #error = tf.reduce_mean(tf.losses.log_loss(predictions=preds, labels=self.Label), name='mean_log_loss')
+        error = self._get_loss(preds, self.Label)
         loss = error
         
         train_step = self._optimize(error, tf.trainable_variables())  

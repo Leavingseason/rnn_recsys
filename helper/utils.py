@@ -3,6 +3,9 @@
 '''
 import re
 import pickle
+from collections import Counter
+import math
+from operator import itemgetter
 
 def try_get_param(hparams, key, dvalue):
     if key in hparams:
@@ -40,6 +43,36 @@ def load_obj_from_file(filename):
     with open(filename, 'rb') as rd:
         obj = pickle.load(rd)
     return obj
+
+def convert_line_to_tfidf(line, wh_model, norm = False):
+    IDF_CONSTANT = 1000000
+    tokens = clean_str(line).split(' ')
+    if len(tokens)<2:
+        return None    
+    cur_word_dict = Counter(tokens)
+    cur_word_list = [(wh_model.word2idx[k],v) for k,v in cur_word_dict.items() if k in wh_model.word2idx]
+    if not cur_word_list:
+        return None
+    cur_word_list.sort()
+    doc_word_cnt = sum(p[1] for p in cur_word_list) * 1.0 
+    if doc_word_cnt<=0.001:
+        return None
+    res = [(p[0],p[1]*1.0/doc_word_cnt * math.log2(IDF_CONSTANT*1.0/wh_model.word2freq[wh_model.idx2word[p[0]]])) for p in cur_word_list]
+    if norm:
+        max_value = max(0.001,max(res, key = itemgetter(1))[1])
+        res = [(p[0],p[1]/max_value) for p in res]
+    return res
+
+def get_firstlines(infile, outfile, k):
+    cnt = 0 
+    with open(infile, 'r') as rd:
+        with open(outfile, 'w') as wt:
+            while True:
+                line = rd.readline() 
+                cnt += 1 
+                if not line or cnt>k :
+                    break 
+                wt.write(line)
 
 if __name__ == '__main__':
     # testing 

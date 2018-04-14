@@ -27,10 +27,16 @@ class CDAE(SDAE):
         self.X2 = tf.sparse_placeholder(tf.float32) 
         self.Y2 = tf.sparse_placeholder(tf.float32) 
         self.mask2 = tf.sparse_placeholder(tf.float32) 
+        
+        config.logger.info(str(hparam))
 
         super().__init__(**hparam)
         
     def build_model(self):    
+        
+        dense_masker01 = tf.sparse_tensor_to_dense(self.mask)
+        dense_masker02 = tf.sparse_tensor_to_dense(self.mask1)
+        dense_masker03 = tf.sparse_tensor_to_dense(self.mask2)
             
         with tf.name_scope('encoding'):
             encoding = tf.add(tf.sparse_tensor_dense_matmul(self.X, self.W) , self.b, name= 'raw_values')
@@ -52,14 +58,18 @@ class CDAE(SDAE):
             
             decoding2 =  tf.nn.xw_plus_b(encoded_values2, self.W_prime, self.b_prime)
             decoded_values2 = self.dec_func(decoding2, name = 'decoded_values2')
+            
+            masked_decoded_values = tf.multiply(dense_masker01, decoded_values)
         
         with tf.name_scope('training_process'):
-            diff = tf.squared_difference(tf.sparse_tensor_to_dense(self.Y) , decoded_values) \
-                + tf.squared_difference(tf.sparse_tensor_to_dense(self.Y1) , decoded_values1) \
-                         + tf.squared_difference(tf.sparse_tensor_to_dense(self.Y2) , decoded_values2)
-            L_R  = tf.reduce_sum( tf.multiply(tf.sparse_tensor_to_dense(self.mask), diff) ) 
+            diff01 = tf.squared_difference(tf.sparse_tensor_to_dense(self.Y) , decoded_values)  
+            diff02 = tf.squared_difference(tf.sparse_tensor_to_dense(self.Y1) , decoded_values1)  
+            diff03 = tf.squared_difference(tf.sparse_tensor_to_dense(self.Y2) , decoded_values2)
+            L_R  = tf.reduce_sum( tf.multiply(dense_masker01, diff01)) \
+                +  tf.reduce_sum( tf.multiply(dense_masker02, diff02)) \
+                + tf.reduce_sum( tf.multiply(dense_masker03, diff03))
             
-            L_T = tf.reduce_sum( tf.log(1+ tf.exp( tf.reduce_sum( tf.multiply(decoded_values, decoded_values2), 1) -  tf.reduce_sum(tf.multiply(decoded_values, decoded_values1),1))))
+            L_T = tf.reduce_sum( tf.log(1+ tf.exp( tf.reduce_sum( tf.multiply(encoded_values, encoded_values2), 1) -  tf.reduce_sum(tf.multiply(encoded_values, encoded_values1),1))))
             
             error = L_R + self.alpha_enc * L_T
             
@@ -78,11 +88,11 @@ class CDAE(SDAE):
             tf.summary.histogram(param[0], param[1])        
         merged_summary = tf.summary.merge_all()                                   
             
-        return encoded_values, decoded_values, error, loss, train_step, merged_summary
+        return encoded_values, decoded_values, masked_decoded_values, error, loss, train_step, merged_summary
     
-    def fit(self,  sp_indices, sp_noised_values, sp_original_values, 
-            sp_indices1, sp_noised_values1, sp_original_values1,
-            sp_indices2, sp_noised_values2, sp_original_values2, cur_batch_size 
+    def fit(self,  sp_indices, sp_noised_values, sp_original_values, sp_mask_indices,
+            sp_indices1, sp_noised_values1, sp_original_values1,sp_mask_indices1,
+            sp_indices2, sp_noised_values2, sp_original_values2, sp_mask_indices2, cur_batch_size 
             ):
         
         tensor_shape = np.array([cur_batch_size, self.vocab_size], dtype=np.int64)
@@ -91,15 +101,15 @@ class CDAE(SDAE):
                   [self.error, self.loss, self.summary, self.train_step], 
                   {self.X: (sp_indices, sp_noised_values, tensor_shape), 
                    self.Y: (sp_indices, sp_original_values, tensor_shape), 
-                   self.mask: (sp_indices, np.ones_like(sp_original_values), tensor_shape),
+                   self.mask: (sp_mask_indices, np.ones(sp_mask_indices.shape[0]), tensor_shape),
                    
                    self.X1: (sp_indices1, sp_noised_values1, tensor_shape), 
                    self.Y1: (sp_indices1, sp_original_values1, tensor_shape), 
-                   self.mask1: (sp_indices1, np.ones_like(sp_original_values1), tensor_shape),
+                   self.mask1: (sp_mask_indices1, np.ones(sp_mask_indices1.shape[0]), tensor_shape),
                    
                    self.X2: (sp_indices2, sp_noised_values2, tensor_shape), 
                    self.Y2: (sp_indices2, sp_original_values2, tensor_shape), 
-                   self.mask2: (sp_indices2, np.ones_like(sp_original_values2), tensor_shape)
+                   self.mask2: (sp_mask_indices2, np.ones(sp_mask_indices2.shape[0]), tensor_shape)
                    }
         )
         self.log_writer.add_summary(summary, self._glo_ite_counter)

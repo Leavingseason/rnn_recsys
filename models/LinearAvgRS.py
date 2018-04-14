@@ -22,18 +22,37 @@ class BaseRS(object):
         self.summary_path = hparam['tf_summary_file'] if 'tf_summary_file' in hparam else 'log_tmp_path'
         
         self.type_of_loss = hparam['loss'] if 'loss' in hparam else 'rmse' 
-        
+        self.saver = None 
         self.params = {} 
     
     def __del__( self ):
         if self.log_writer:
             self.log_writer.close()
-            self.log_writer = None
-    
-    def save_model(self, filename):
-        saver = tf.train.Saver()
-        saver.save(self.sess, filename)
+            self.log_writer = None    
+   
+    def save_model(self, filename, step):
+        if not self.saver:
+            self.saver = tf.train.Saver(max_to_keep = 50)
+        self.saver.save(self.sess, filename, global_step = step )
         
+    def restore_model(self, filename):
+        if not self.saver:
+            self.saver = tf.train.Saver(max_to_keep = 50)
+        self.saver.restore(self.sess, filename)
+        
+    def _get_loss(self, preds, Y):
+        if self.type_of_loss == 'cross_entropy_loss':
+            error = tf.reduce_mean(
+                           tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(preds, [-1]), labels=tf.reshape(Y, [-1])),
+                           name='cross_entropy_loss'
+                           )
+        elif self.type_of_loss == 'square_loss' or self.type_of_loss == 'rmse':
+            error = tf.reduce_mean(tf.squared_difference(preds, Y, name='squared_diff'), name='mean_squared_diff')
+        elif self.type_of_loss == 'log_loss':
+            error = tf.reduce_mean(tf.losses.log_loss(predictions=preds, labels=Y), name='mean_log_loss')
+        
+        return error
+           
     def _optimize(self, loss , model_params ):
         if self.opt == 'adadelta':
             train_step = tf.train.AdadeltaOptimizer(self.lr, self.rho, self.epsilon).minimize(loss, var_list= model_params)
@@ -42,7 +61,7 @@ class BaseRS(object):
         elif self.opt =='adam':
             train_step = tf.train.AdamOptimizer(self.lr).minimize(loss, var_list=model_params)
         elif self.opt =='ftrl':
-            train_step = tf.train.FtrlOptimizer(self.lr).minimize(loss,var_list=model_params)
+            train_step = tf.train.FtrlOptimizer(self.lr).minimize(loss, var_list=model_params)
         return train_step
     
       
@@ -88,7 +107,9 @@ class LinearAvgRS(BaseRS):
                             tf.truncated_normal([self.dim, 1], stddev=self.init_value, mean=0), 
                             name='W' , dtype=tf.float32
                             ) 
+        self.b = tf.Variable(tf.truncated_normal([1], stddev=self.init_value*0.1, mean=0), dtype=tf.float32, name='b')
         self.params['W'] = self.W 
+        self.params['b'] = self.b
         
         self.X = tf.placeholder(tf.float32, shape=(None, self.dim))
         self.Y = tf.placeholder(tf.float32, shape=(None,1))
@@ -99,18 +120,11 @@ class LinearAvgRS(BaseRS):
 
     def _build_model(self):
         with tf.name_scope('linear_regression'):
-            preds = tf.matmul(self.X, self.W)
-   
-            if self.type_of_loss == 'cross_entropy_loss':
-                error = tf.reduce_mean(
-                               tf.nn.sigmoid_cross_entropy_with_logits(logits=tf.reshape(preds, [-1]), labels=tf.reshape(self.Y, [-1])),
-                               name='cross_entropy_loss'
-                               )
-            elif self.type_of_loss == 'square_loss' or self.type_of_loss == 'rmse':
-                error = tf.reduce_mean(tf.squared_difference(preds, self.Y, name='squared_diff'), name='mean_squared_diff')
-            elif self.type_of_loss == 'log_loss':
-                error = tf.reduce_mean(tf.losses.log_loss(predictions=preds, labels=self.Y), name='mean_log_loss')
-        
+            preds = tf.nn.xw_plus_b(self.X, self.W, self.b)
+            #preds = tf.matmul(self.X, self.W)
+            preds = tf.sigmoid(preds)
+            error = self._get_loss(preds, self.Y)
+            
             reg = 0  
             for param in self.params.items():
                 reg += tf.nn.l2_loss(param[1])* self.lambda_w
@@ -121,6 +135,7 @@ class LinearAvgRS(BaseRS):
         
         tf.summary.scalar('error', error)
         tf.summary.scalar('loss', loss)
+        tf.summary.scalar('bias', self.b[0])
         tf.summary.histogram('W', self.W)
         
         merged_summary = tf.summary.merge_all()
