@@ -30,7 +30,7 @@ Finally, train your RNN recsys:
 train_RS()
 
 ## data description:
-data/articles.txt:  each line is an article, in the form of word_id:word_tf_idf_value 
-data/articles_CDAE.txt: each line is 3 articles, splited by tab, article_01 and article_02 belong to a same category, while article_03 belongs to a different category 
-data/RS/articles_embeddings.txt:  each line is an article,  in the form of article_ID \t embedding_vector (D float numbers, where D denotes the dimension of embedding) 
+data/articles.txt:  each line is an article, in the form of word_id:word_tf_idf_value \\
+data/articles_CDAE.txt: each line is 3 articles, splited by tab, article_01 and article_02 belong to a same category, while article_03 belongs to a different category \\
+data/RS/articles_embeddings.txt:  each line is an article,  in the form of article_ID \t embedding_vector (D float numbers, where D denotes the dimension of embedding) \\
 data/RS/train.txt:  each line is a training instance, in the form of user_history \t target_item_id \t label.   user_history is a sequence of item_id, splited by space. 
