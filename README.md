@@ -37,3 +37,5 @@ data/articles_CDAE.txt: each line is 3 articles, splited by tab, article_01 and 
 data/RS/articles_embeddings.txt:  each line is an article,  in the form of article_ID \t embedding_vector (D float numbers, where D denotes the dimension of embedding) 
 
 data/RS/train.txt:  each line is a training instance, in the form of user_history \t target_item_id \t label.   user_history is a sequence of item_id, splited by space. 
+
+articles_TFIDF_norm_3w.txt format: each line is one document, such as 14 17513:1.00 27510:0.81  , representing  article_id \TAB word_id01:value \ SPACE word_id02:value \SPACE ....
