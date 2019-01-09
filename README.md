@@ -20,7 +20,7 @@ training curve of loss:
 ![alt text](https://github.com/Leavingseason/rnn_recsys/blob/master/notes/CDAE/loss2.JPG)
 
 
-## training autoencoder
+## training RNN recsys
 After training the autoencoder, you need to encode each raw article to get their embeddings:
 
 encode_articles(...)
